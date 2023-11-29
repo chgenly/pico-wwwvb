@@ -1,0 +1,9 @@
+{
+    "cmake.configureOnOpen": true,
+    "cmake.sourceDirectory": "C:/Users/chris/Desktop/pico-wwvb/src",
+    "files.associations": {
+        "time.h": "c",
+        "picow_ntp_client.h": "c",
+        "pwm.h": "c"
+    }
+}
