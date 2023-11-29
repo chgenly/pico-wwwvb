@@ -4,6 +4,9 @@
     "files.associations": {
         "time.h": "c",
         "picow_ntp_client.h": "c",
-        "pwm.h": "c"
+        "pwm.h": "c",
+        "stdlib.h": "c",
+        "pico.h": "c",
+        "gpio.h": "c"
     }
 }

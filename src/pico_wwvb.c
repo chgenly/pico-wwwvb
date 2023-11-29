@@ -1,9 +1,7 @@
-
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
 #include <pico/types.h>
-#include "hardware/rtc.h"
 #include "pico/stdlib.h"
 #include "pico/util/datetime.h"
 #include "pico/cyw43_arch.h"
@@ -337,33 +335,33 @@ static inline int is_daylight_savings_time(int day, int month, int year) {
 
 static inline void gen_mark() {
     wwvb_pwm_low_power();
-    led_wwvb_off();
+    wwvb_led_off();
     sleep_ms(800);
     wwvb_pwm_high_power();
-    led_wwvb_on();
+    wwvb_led_on();
     sleep_ms(200);
     wwvb_pwm_low_power();
-    led_wwvb_off();
+    wwvb_led_off();
 }
 
 static inline void gen_zero() {
     wwvb_pwm_low_power();
-    led_wwvb_off();
+    wwvb_led_off();
     sleep_ms(200);
     wwvb_pwm_high_power();
-    led_wwvb_on();
+    wwvb_led_on();
     sleep_ms(800);
     wwvb_pwm_low_power();
-    led_wwvb_off();
+    wwvb_led_off();
 }
 
 static inline void gen_one() {
     wwvb_pwm_low_power();
-    led_wwvb_off();
+    wwvb_led_off();
     sleep_ms(500);
     wwvb_pwm_high_power();
-    led_wwvb_on();
+    wwvb_led_on();
     sleep_ms(500);
     wwvb_pwm_low_power();
-    led_wwvb_off();
+    wwvb_led_off();
 }

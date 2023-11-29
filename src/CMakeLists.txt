@@ -42,7 +42,10 @@ target_compile_definitions(pico_wwvb PRIVATE
         )
 
         # pull in common dependencies
-target_link_libraries(pico_wwvb pico_stdlib pico_cyw43_arch_lwip_poll hardware_rtc hardware_pwm)
+target_link_libraries(pico_wwvb 
+        pico_stdlib 
+        pico_cyw43_arch_lwip_poll 
+        hardware_pwm)
 
 # create map/bin/hex file etc.
 pico_add_extra_outputs(pico_wwvb)

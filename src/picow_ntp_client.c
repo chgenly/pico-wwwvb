@@ -16,12 +16,14 @@
 
 #include "picow_ntp_client.h"
 
+// Status
 #define ST_COMPLETE 0
 #define ST_IN_PROGRESS 1
 #define ST_ERROR 2
 
+// Progress
 #define P_ALLOCATE_STATE 1
-#define P_ALLOCATE_PACKET 2
+#define P_INIT_RECIEVE 2
 #define P_INITIALIZE_WIFI 3
 #define P_WIFI_LOGIN 4
 #define P_DNS_RECEIVED 5
@@ -47,23 +49,19 @@ typedef struct NTP_T_ {
 
 // Called with results of operation
 static void ntp_result(NTP_T* state, int status, time_t *result) {
-
     state->status = status;
     if (state->ntp_resend_alarm > 0) {
         cancel_alarm(state->ntp_resend_alarm);
         state->ntp_resend_alarm = 0;
     }
-
     if (status == ST_COMPLETE && result) {
         struct tm *utc = gmtime(result);
         *state->utc = *utc;
-        state->status = ST_COMPLETE;
         printf("got ntp response: %02d/%02d/%04d %02d:%02d:%02d\n", utc->tm_mday, utc->tm_mon + 1, utc->tm_year + 1900,
                utc->tm_hour, utc->tm_min, utc->tm_sec);
     } else {
         state->ntp_test_time = make_timeout_time_ms(NTP_TEST_TIME);
         state->dns_request_sent = false;
-        state->status = ST_ERROR;
     }
 }
 
@@ -83,11 +81,10 @@ static void ntp_request(NTP_T *state) {
     cyw43_arch_lwip_end();
 }
 
-static int64_t ntp_failed_handler(alarm_id_t id, void *user_data)
-{
+static int64_t ntp_failed_handler(alarm_id_t id, void *user_data) {
     NTP_T* state = (NTP_T*)user_data;
     printf("ntp request failed\n");
-    state->progress(-P_DNS_RECEIVED);
+    state->progress(-P_TIME_RECEIVED);
     ntp_result(state, ST_ERROR, NULL);
     return 0;
 }
@@ -132,11 +129,11 @@ static void ntp_recv(void *arg, struct udp_pcb *pcb, struct pbuf *p, const ip_ad
 static void ntp_init_recv(NTP_T *state) {
     state->ntp_pcb = udp_new_ip_type(IPADDR_TYPE_ANY);
     if (!state->ntp_pcb) {
-        printf("failed to create pcb\n");
+        state->progress(-P_INIT_RECIEVE);
         return;
     }
-    state->status = ST_IN_PROGRESS;
     udp_recv(state->ntp_pcb, ntp_recv, state);
+    state->progress(P_INIT_RECIEVE);
 }
 
 bool ntp_start(NTP_T **statep, void(*progress)(int p)) {
@@ -148,13 +145,15 @@ bool ntp_start(NTP_T **statep, void(*progress)(int p)) {
         return false;
     }
     *statep = state;
+    state->progress = progress;
+    state->status = ST_IN_PROGRESS;
     progress(P_ALLOCATE_STATE);
     ntp_init_recv(state);
     if (cyw43_arch_init()) {
         printf("failed to initialise wifi\n");
         state->status = ST_ERROR;
         state->progress(-P_INITIALIZE_WIFI);
-        return true;
+        return false;
     }
     state->progress(P_INITIALIZE_WIFI);
 
@@ -173,10 +172,15 @@ void ntp_end() {
   cyw43_arch_deinit();
 };
 
+/**
+ * Ask NTP for time.
+ * utc - Time structure passed by caller, to be filled in by this function.
+ * progress - Callback to report progress.
+ * return true if success. 
+ */
 bool ntp_ask_for_time(struct tm* utc, void(*progress)(int p)) {
     NTP_T *state;
-    ntp_start(&state, progress);
-    if (state == NULL)
+    if (!ntp_start(&state, progress))
        return false;
     state->utc = utc;
     
@@ -190,7 +194,7 @@ bool ntp_ask_for_time(struct tm* utc, void(*progress)(int p)) {
             // these calls are a no-op and can be omitted, but it is a good practice to use them in
             // case you switch the cyw43_arch type later.
             cyw43_arch_lwip_begin();
-            int err = dns_gethostbyname(NTP_SERVER, &state->ntp_server_address, ntp_dns_found, state);
+            err_t err = dns_gethostbyname(NTP_SERVER, &state->ntp_server_address, ntp_dns_found, state);
             cyw43_arch_lwip_end();
 
             state->dns_request_sent = true;
