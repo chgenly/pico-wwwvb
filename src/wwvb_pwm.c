@@ -3,7 +3,8 @@
 #include "hardware/pwm.h"
 #include "hardware/gpio.h"
 
-#define PWM_TOP 1000
+// 48 MHZ peripheral clock / 60 Khz = 800
+#define PWM_TOP 800
 #define PWM_LOW_POWER 0
 #define PWM_HIGH_POWER (PWM_TOP/2)
 
@@ -14,10 +15,7 @@ void wwvb_pwm_init() {
     
     // Find out which PWM slice is connected to GPIO 0 (it's slice 0)
     slice_num = pwm_gpio_to_slice_num(0);
-
-    // Set period of 4 cycles (0 to 3 inclusive)
     pwm_set_wrap(slice_num, PWM_TOP);
-    // Set the PWM running
     pwm_set_enabled(slice_num, true);
 }
 

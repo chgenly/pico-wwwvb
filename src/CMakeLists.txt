@@ -45,6 +45,8 @@ target_compile_definitions(pico_wwvb PRIVATE
 target_link_libraries(pico_wwvb 
         pico_stdlib 
         pico_cyw43_arch_lwip_poll 
+        hardware_clocks
+        hardware_pll
         hardware_pwm)
 
 # create map/bin/hex file etc.
