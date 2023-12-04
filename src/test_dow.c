@@ -2,21 +2,26 @@
 #include "pico/cyw43_arch.h"
 #include <stdio.h>
 #include "wwvb_led.h"
+#include "date_utils.h"
 
 static void dow_assert(int actual, int expected) {
     if (actual != expected) {
-        led_progress_error(-7);
+        led_progress_error(7);
         for(;;)
             tight_loop_contents();
     }
 }
 
 int main() {
-   if (cyw43_arch_init()) {
+    if (cyw43_arch_init()) {
         printf("failed to initialise wifi\n");
-        led_progress_error(1);
+        led_progress_error(7);
         return 0;
     } 
+
+    wwvb_led_init();
+    led_progress_ok(1);
+
     dow_assert(day_of_week(1, 1, 1901), 2);
     dow_assert(day_of_week(9, 9, 1650), 5);
     dow_assert(day_of_week(15, 12, 2317), 6);
@@ -148,6 +153,7 @@ int main() {
     dow_assert(day_of_week(8, 7, 1800), 2);
     dow_assert(day_of_week(22, 11, 2424), 5);
     dow_assert(day_of_week(20, 9, 1728), 1);
+    led_progress_ok(2);
 
     return 0;
 }

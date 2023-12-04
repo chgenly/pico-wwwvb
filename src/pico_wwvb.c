@@ -138,11 +138,17 @@ void broadcast_time(
     int broadcasts = 0;
     int doy = day_of_year(day, month, year);
     int leap = is_leap_year(year);
-    int dst = is_daylight_savings_time(day, month, year);
-    printf("dst=%d\n", dst);
+    // Daylight saving time (DST) and standard time (ST) information is transmitted at seconds
+    // 57 and 58. When ST is in effect, bits 57 and 58 are set to 0. When DST is in effect, bits
+    // 57 and 58 are set to 1. On the day of a change from ST to DST bit 57 changes from 0 to
+    // 1 at 0000 UTC, and bit 58 changes from 0 to 1 exactly 24 hours later. On the day of a
+    // change from DST back to ST bit 57 changes from 1 to 0 at 0000 UTC, and bit 58 changes
+    // from 1 to 0 exactly 24 hours later.
+    int dst1 = is_daylight_savings_time(day, month, year);
+    int dst2 = is_daylight_savings_time(day-1, month, year);
+    printf("dst1=%d dst2=%d\n", dst1, dst2);
     printf("%d %d %d %d %d %d\n", year, month, day, hour, minute, second);
 
-    printf("mon=%d day=%d\n", month, day);
     while (1) {
         // compute bit
         unsigned char bit=0; // 2 = mark, 1 = "1", 0 = "0"
@@ -319,10 +325,10 @@ void broadcast_time(
                 bit = 0;
                 break;
             case 57: // dst bit 1
-                bit = dst ? 1 : 0; // XXX this isn't exactly correct
+                bit = dst1 ? 1 : 0; 
                 break;
             case 58: // dst bit 2
-                bit = dst ? 1 : 0;
+                bit = dst2 ? 1 : 0;
                 break;
             case 59: // mark
                 bit = 2;
