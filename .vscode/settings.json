@@ -7,6 +7,9 @@
         "pwm.h": "c",
         "stdlib.h": "c",
         "pico.h": "c",
-        "gpio.h": "c"
+        "gpio.h": "c",
+        "flash.h": "c",
+        "cyw43_arch.h": "c",
+        "wwvb_led.h": "c"
     }
 }

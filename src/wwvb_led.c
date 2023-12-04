@@ -1,14 +1,11 @@
 #include "pico/stdlib.h"
-// #include "hardware/gpio.h"
+#include "pico/cyw43_arch.h"
 #include "wwvb_led.h"
 #include "boards/pico.h"
-#ifndef PICO_DEFAULT_LED_PIN
-#error wwvb_led example requires a board with a regular LED
-#endif
 
-#define LED_1 4
-#define LED_2 5
-#define LED_4 6
+#define LED_1 10
+#define LED_2 11
+#define LED_4 12
 
 static void init(int led_pin) {
     gpio_init(led_pin);
@@ -24,14 +21,14 @@ void wwvb_led_init() {
 }
 
 void wwvb_led_off() {
-    gpio_put(PICO_DEFAULT_LED_PIN, 0);
+    cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 0);
 }
 
 void wwvb_led_on() {
-    gpio_put(PICO_DEFAULT_LED_PIN, 1);
+    cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 1);
 }
 
-static void led_progress_off() {
+void led_progress_off() {
     gpio_put(LED_1, 0);
     gpio_put(LED_2, 0);
     gpio_put(LED_4, 0);
@@ -41,6 +38,7 @@ void led_progress_ok(int p) {
     gpio_put(LED_1, (p>>0)&1);
     gpio_put(LED_2, (p>>1)&1);
     gpio_put(LED_4, (p>>2)&1);
+    sleep_ms(100);
 }
 
 void led_progress_error(int p) {
@@ -48,6 +46,6 @@ void led_progress_error(int p) {
         led_progress_ok(p);
         sleep_ms(250);
         led_progress_off();
-        sleep_ms(250);
+        sleep_ms(500);
     }
 }
