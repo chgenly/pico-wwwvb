@@ -28,6 +28,7 @@ endif()
 
 add_executable(pico_wwvb
         pico_wwvb.c
+        date_utils.c
         picow_ntp_client.c
         wwvb_pwm.c
         wwvb_led.c
@@ -75,3 +76,21 @@ else()
         pico_add_extra_outputs(pico_wwvb)
 
 endif()
+
+add_executable(test_dow
+        test_dow.c
+        date_utils.c
+        wwvb_led.c
+        )
+
+target_include_directories(test_dow PRIVATE
+        ${CMAKE_CURRENT_LIST_DIR}
+        )
+        target_link_libraries(test_dow 
+                pico_stdlib 
+                pico_cyw43_arch_lwip_poll 
+        )
+
+        # create map/bin/hex file etc.
+        pico_add_extra_outputs(test_dow)
+
