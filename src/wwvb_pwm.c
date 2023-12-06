@@ -5,12 +5,14 @@
 #include <stdio.h>
 
 #define GPIO_PIN 1
-// 48 MHZ peripheral clock / 60 Khz = 800
-#define PWM_TOP 2083
+// 125 MHZ peripheral clock / 60 Khz = 2803
+// 125 MHZ peripheral clock / 20 Khz = 6250
+#define PWM_TOP 6250u
+
 #define PWM_LOW_POWER 0
 #define PWM_HIGH_POWER (PWM_TOP/2)
 
-int slice_num;
+static int slice_num;
 
 void wwvb_pwm_init() {
     gpio_set_function(GPIO_PIN, GPIO_FUNC_PWM);

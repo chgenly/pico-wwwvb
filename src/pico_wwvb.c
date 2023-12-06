@@ -96,16 +96,22 @@ int main() {
     int status;
     struct tm utc;
 
-    init_clocks();
-
     stdio_init_all();
+    wwvb_led_init();
 
+    int r=4;
     for(int i=0; i<10;++i) {
         printf("pici_wwvb start %d %s %s\n", i, WIFI_SSID, WIFI_PASSWORD);
-        sleep_ms(1000);
+        led_progress_ok(r);
+        sleep_ms(100);
+        led_progress_off();
+        sleep_ms(9000);
+        r = r >> 1;
+        if (r == 0)
+            r = 4;
     }
-    wwvb_led_init();
     wwvb_pwm_init();
+    init_clocks();
 
     printf("flash_block=%x\n", flash_block);
     ntp_start(progress);
@@ -147,9 +153,9 @@ void broadcast_time(
     int dst1 = is_daylight_savings_time(day, month, year);
     int dst2 = is_daylight_savings_time(day-1, month, year);
     printf("dst1=%d dst2=%d\n", dst1, dst2);
-    printf("%d %d %d %d %d %d\n", year, month, day, hour, minute, second);
 
     while (1) {
+        printf("%d %d %d %d %d %d\n", year, month, day, hour, minute, second);
         // compute bit
         unsigned char bit=0; // 2 = mark, 1 = "1", 0 = "0"
         switch (second) {

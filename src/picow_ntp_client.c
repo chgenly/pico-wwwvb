@@ -177,9 +177,12 @@ void ntp_end() {
  */
 bool ntp_ask_for_time(struct tm* utc) {
     state.utc = utc;
+    state.status = ST_IN_PROGRESS;
+    state.ntp_test_time = get_absolute_time();
+    state.dns_request_sent = false;
     
     while(state.status == ST_IN_PROGRESS) {
-        if (absolute_time_diff_us(get_absolute_time(), state.ntp_test_time) < 0 && !state.dns_request_sent) {
+        if (absolute_time_diff_us(get_absolute_time(), state.ntp_test_time) <= 0 && !state.dns_request_sent) {
             // Set alarm in case udp requests are lost
             state.ntp_resend_alarm = add_alarm_in_ms(NTP_RESEND_TIME, ntp_failed_handler, NULL, true);
 
