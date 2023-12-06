@@ -6,6 +6,12 @@ It uses the [Raspberry Pi Pico W](https://www.raspberrypi.com/documentation/micr
 
 This is a simplification of a previous project which used GPS to obtain the time.  See [micro-wwvb](https://github.com/chgenly/micro-wwvb).
 
+![pico-wwvb board](images/pico_wwvb_board.jpg)
+PICO W board showing LEDs and antenna connection
+
+![pico-wwvb board with antenna](images/pico_wwvb_board_with_antenna.jpg)
+PICO W with antenna 
+
 # Windows Development environement
 
 As described in [Getting Started With Raspberry Pi Pico](https://datasheets.raspberrypi.com/pico/getting-started-with-pico.pdf?_gl=1*1nfvcz8*_ga*MzMwNzAxMjUzLjE3MDExNDE3NTA.*_ga_22FD70LWDS*MTcwMTE5ODg2Mi4zLjEuMTcwMTIwMDY5Ny4wLjAuMA..)
