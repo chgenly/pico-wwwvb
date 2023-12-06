@@ -92,6 +92,27 @@ static void init_clocks() {
     // measure_freqs();
 }
 
+/** This delay gives the user time to connect a terminal to look at the usb output. */
+static void startup_delay() {
+    int r=4;
+    for(int i=0; i<8;++i) {
+        led_progress_ok(7);
+        sleep_ms(100);
+        printf("pici_wwvb start %d\n", i);
+        for(int j=0; j<10;++j) {
+            led_progress_off();
+            sleep_ms(10);
+            led_progress_ok(i);
+            sleep_ms(60);
+            led_progress_off();
+            sleep_ms(20);
+            r = r >> 1;
+            if (r == 0)
+                r = 4;
+        }
+    }
+}
+
 int main() {
     int status;
     struct tm utc;
@@ -99,19 +120,7 @@ int main() {
     stdio_init_all();
     wwvb_led_init();
 
-    int r=4;
-    for(int i=0; i<10;++i) {
-        printf("pici_wwvb start %d %s %s\n", i, WIFI_SSID, WIFI_PASSWORD);
-        for(int j=0; j<10;++j) {
-            led_progress_ok(r);
-            sleep_ms(50);
-            led_progress_off();
-            sleep_ms(50);
-            r = r >> 1;
-            if (r == 0)
-                r = 4;
-        }
-    }
+    startup_delay();
     wwvb_pwm_init();
     init_clocks();
 
