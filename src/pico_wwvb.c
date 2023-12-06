@@ -94,21 +94,13 @@ static void init_clocks() {
 
 /** This delay gives the user time to connect a terminal to look at the usb output. */
 static void startup_delay() {
-    int r=4;
     for(int i=0; i<8;++i) {
-        led_progress_ok(7);
-        sleep_ms(100);
         printf("pici_wwvb start %d\n", i);
         for(int j=0; j<10;++j) {
-            led_progress_off();
-            sleep_ms(10);
             led_progress_ok(i);
-            sleep_ms(60);
+            sleep_ms(0);
             led_progress_off();
             sleep_ms(20);
-            r = r >> 1;
-            if (r == 0)
-                r = 4;
         }
     }
 }
