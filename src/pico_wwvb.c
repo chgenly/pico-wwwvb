@@ -102,13 +102,15 @@ int main() {
     int r=4;
     for(int i=0; i<10;++i) {
         printf("pici_wwvb start %d %s %s\n", i, WIFI_SSID, WIFI_PASSWORD);
-        led_progress_ok(r);
-        sleep_ms(100);
-        led_progress_off();
-        sleep_ms(9000);
-        r = r >> 1;
-        if (r == 0)
-            r = 4;
+        for(int j=0; j<10;++j) {
+            led_progress_ok(r);
+            sleep_ms(50);
+            led_progress_off();
+            sleep_ms(50);
+            r = r >> 1;
+            if (r == 0)
+                r = 4;
+        }
     }
     wwvb_pwm_init();
     init_clocks();
