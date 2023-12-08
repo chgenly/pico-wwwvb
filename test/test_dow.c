@@ -1,3 +1,12 @@
+/**
+ * Test Day of the week calculations.
+ * 
+ * 1: Test has begun
+ * 2: Test has ended
+ * Flashing 6: wifi chip failed to initialize
+ * Flashing 7: Assertion failed
+ */
+
 #include "pico/stdlib.h"
 #include "pico/cyw43_arch.h"
 #include <stdio.h>
@@ -15,7 +24,7 @@ static void dow_assert(int actual, int expected) {
 int main() {
     if (cyw43_arch_init()) {
         printf("failed to initialise wifi\n");
-        led_progress_error(7);
+        led_progress_error(6);
         return 0;
     } 
 

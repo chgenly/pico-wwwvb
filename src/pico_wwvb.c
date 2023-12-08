@@ -122,7 +122,7 @@ int main() {
     for(;;) {
         for(;;) {
             status = ntp_ask_for_time(&utc);
-            printf("status1=%d\n", status);
+            printf("ntp_ask_for_time returns status1=%d\n", status);
             if (status)
                 break;
             sleep_ms(30*1000);
@@ -155,10 +155,10 @@ void broadcast_time(
     // from 1 to 0 exactly 24 hours later.
     int dst1 = is_daylight_savings_time(day, month, year);
     int dst2 = is_daylight_savings_time(day-1, month, year);
-    printf("dst1=%d dst2=%d\n", dst1, dst2);
+    // printf("dst1=%d dst2=%d\n", dst1, dst2);
 
     while (1) {
-        printf("%d %d %d %d %d %d\n", year, month, day, hour, minute, second);
+        // printf("%d %d %d %d %d %d\n", year, month, day, hour, minute, second);
         // compute bit
         unsigned char bit=0; // 2 = mark, 1 = "1", 0 = "0"
         switch (second) {
@@ -369,8 +369,6 @@ void broadcast_time(
         }
     }
 }
-
-
 
 void gen_mark() {
     wwvb_pwm_low_power();

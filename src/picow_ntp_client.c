@@ -51,8 +51,10 @@ static NTP_T state;
 
 // Called with results of operation
 static void ntp_result(int status, time_t *result) {
+    printf("ntp_result status=%d\n", status);
     state.status = status;
     if (state.ntp_resend_alarm > 0) {
+        printf("cancelled alarm\n");
         cancel_alarm(state.ntp_resend_alarm);
         state.ntp_resend_alarm = 0;
     }
@@ -64,6 +66,7 @@ static void ntp_result(int status, time_t *result) {
         printf("got ntp response: %02d/%02d/%04d %02d:%02d:%02d\n", utc->tm_mday, utc->tm_mon + 1, utc->tm_year + 1900,
                utc->tm_hour, utc->tm_min, utc->tm_sec);
     } else {
+        printf(" setup for retry\n");
         state.ntp_test_time = make_timeout_time_ms(NTP_TEST_TIME);
         state.dns_request_sent = false;
     }
@@ -83,6 +86,7 @@ static void ntp_request() {
     udp_sendto(state.ntp_pcb, p, &state.ntp_server_address, NTP_PORT);
     pbuf_free(p);
     cyw43_arch_lwip_end();
+    printf("ntp request sent\n");
 }
 
 static int64_t ntp_failed_handler(alarm_id_t id, void *user_data) {
@@ -112,7 +116,7 @@ static void ntp_recv(void *arg, struct udp_pcb *pcb, struct pbuf *p, const ip_ad
 
     // Check the result
     if (ip_addr_cmp(addr, &state.ntp_server_address) && port == NTP_PORT && p->tot_len == NTP_MSG_LEN &&
-        mode == 0x4 && stratum != 0) {
+        mode == 0x4 && stratum != 0) {            
         uint8_t seconds_buf[4] = {0};
         pbuf_copy_partial(p, seconds_buf, sizeof(seconds_buf), 40);
         uint32_t seconds_since_1900 = seconds_buf[0] << 24 | seconds_buf[1] << 16 | seconds_buf[2] << 8 | seconds_buf[3];
@@ -139,6 +143,7 @@ static void ntp_init_recv() {
 
 
 bool ntp_start(void(*progress)(int p)) {
+    printf("ntp_start\n");
     memset(&state, 0, sizeof(NTP_T));
     state.progress = progress;
     state.status = ST_IN_PROGRESS;
@@ -180,6 +185,7 @@ bool ntp_ask_for_time(struct tm* utc) {
     state.status = ST_IN_PROGRESS;
     state.ntp_test_time = get_absolute_time();
     state.dns_request_sent = false;
+    printf("ntp_ask_for_time\n");
     
     while(state.status == ST_IN_PROGRESS) {
         if (absolute_time_diff_us(get_absolute_time(), state.ntp_test_time) <= 0 && !state.dns_request_sent) {
@@ -193,6 +199,7 @@ bool ntp_ask_for_time(struct tm* utc) {
             cyw43_arch_lwip_begin();
             err_t err = dns_gethostbyname(NTP_SERVER, &state.ntp_server_address, ntp_dns_found, NULL);
             cyw43_arch_lwip_end();
+            printf("sent dns request err=%d\n", err);
 
             state.dns_request_sent = true;
             if (err == ERR_OK) {
