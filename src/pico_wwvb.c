@@ -21,12 +21,7 @@ void gen_mark();
 void gen_zero();
 void gen_one();
 void broadcast_time(
-    int hour,
-    int minute,
-    int second,
-    int day,
-    int month,
-    int year,
+    time_t time,
     int max_transmissions
 );
 
@@ -107,7 +102,7 @@ static void startup_delay() {
 
 int main() {
     int status;
-    struct tm utc;
+    time_t time;
 
     stdio_init_all();
     wwvb_led_init();
@@ -121,29 +116,33 @@ int main() {
     
     for(;;) {
         for(;;) {
-            status = ntp_ask_for_time(&utc);
-            printf("ntp_ask_for_time returns status1=%d\n", status);
+            status = ntp_ask_for_time(&time);
+            printf("ntp_ask_for_time returns status=%d\n", status);
             if (status)
                 break;
             sleep_ms(30*1000);
         }
-        printf("ntp returned\n");
         led_progress_off();
 
-        broadcast_time(utc.tm_year+1900, utc.tm_mon+1, utc.tm_mday, utc.tm_hour, utc.tm_min, utc.tm_sec, 10);
+        broadcast_time(time, 10);
     }    
     ntp_end();
 }
 
 void broadcast_time(
-    int year,
-    int month,
-    int day,
-    int hour,
-    int minute,
-    int second,
+    time_t time,
     int max_transmissions
 ) {
+    struct tm *utc = gmtime(&time);
+
+    int year = utc->tm_year+1900;
+    int month = utc->tm_mon+1;
+    int day = utc->tm_mday;
+    int hour = utc->tm_hour;
+    int minute = utc->tm_min;
+    int second = utc->tm_sec;
+    printf("%d/%d/%d %d:%d:%d\n", month, day, year, hour, minute, second);
+
     int broadcasts = 0;
     int doy = day_of_year(day, month, year);
     int leap = is_leap_year(year);
@@ -153,13 +152,11 @@ void broadcast_time(
     // 1 at 0000 UTC, and bit 58 changes from 0 to 1 exactly 24 hours later. On the day of a
     // change from DST back to ST bit 57 changes from 1 to 0 at 0000 UTC, and bit 58 changes
     // from 1 to 0 exactly 24 hours later.
-    int dst1 = is_daylight_savings_time(day, month, year);
-    int dst2 = is_daylight_savings_time(day-1, month, year);
-    // printf("dst1=%d dst2=%d\n", dst1, dst2);
+    int dst1 = is_daylight_savings_time(time);
+    int dst2 = is_daylight_savings_time(time-24*60*60);
+    printf("dst1=%d dst2=%d\n", dst1, dst2);
 
     while (1) {
-        // printf("%d %d %d %d %d %d\n", year, month, day, hour, minute, second);
-        // compute bit
         unsigned char bit=0; // 2 = mark, 1 = "1", 0 = "0"
         switch (second) {
             case 0: // mark

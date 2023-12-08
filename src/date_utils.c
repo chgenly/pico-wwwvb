@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <time.h>
 #include "date_utils.h"
 
 int is_leap_year(int year) {
@@ -91,9 +92,14 @@ int day_of_year(int day, int month, int year) {
     return cum_days_in_month[month - 1] + day + (is_leap_year(year) & (month > 2));
 }
 
+int is_daylight_savings_time(time_t time) {
+    printf("is_daylight_savings_time %lld\n", time);
+    struct tm *utc = gmtime(&time);
 
-
-int is_daylight_savings_time(int day, int month, int year) {
+    int year = utc->tm_year+1900;
+    int month = utc->tm_mon+1;
+    int day = utc->tm_mday;
+    
     // according to NIST
     // begins at 2:00 a.m. local time on the second Sunday of March
     // ends at 2:00 a.m. local time on the first Sunday of November
@@ -104,7 +110,6 @@ int is_daylight_savings_time(int day, int month, int year) {
 
     // only march and november left
     int dow = day_of_week(day, month, year);
-    printf("day=%d dow=%d\n", day, dow);
     if (month == 3) {
         return (day - dow > 7);
     } else {

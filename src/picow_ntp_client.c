@@ -35,7 +35,7 @@ typedef struct NTP_T_ {
     struct udp_pcb *ntp_pcb;
     absolute_time_t ntp_test_time;
     alarm_id_t ntp_resend_alarm;
-    struct tm *utc;
+    time_t *utc;
     int status;  //ST_*
     void(*progress)(int p);
 } NTP_T;
@@ -60,11 +60,9 @@ static void ntp_result(int status, time_t *result) {
     }
     if (status == ST_COMPLETE && result) {
         state.progress(P_TIME_RECEIVED);
-        struct tm *utc = gmtime(result);
         state.ntp_test_time = make_timeout_time_ms(0);
-        *state.utc = *utc;
-        printf("got ntp response: %02d/%02d/%04d %02d:%02d:%02d\n", utc->tm_mday, utc->tm_mon + 1, utc->tm_year + 1900,
-               utc->tm_hour, utc->tm_min, utc->tm_sec);
+        *state.utc = *result;
+        printf("got ntp response: %lld\n", *result);
     } else {
         printf(" setup for retry\n");
         state.ntp_test_time = make_timeout_time_ms(NTP_TEST_TIME);
@@ -180,7 +178,7 @@ void ntp_end() {
  * progress - Callback to report progress.
  * return true if success. 
  */
-bool ntp_ask_for_time(struct tm* utc) {
+bool ntp_ask_for_time(time_t* utc) {
     state.utc = utc;
     state.status = ST_IN_PROGRESS;
     state.ntp_test_time = get_absolute_time();
