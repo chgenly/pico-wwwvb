@@ -6,15 +6,13 @@ It uses the [Raspberry Pi Pico W](https://www.raspberrypi.com/documentation/micr
 
 This is a simplification of a previous project which used GPS to obtain the time.  See [micro-wwvb](https://github.com/chgenly/micro-wwvb).
 
-![pico-wwvb board](images/pico_wwvb_board.jpg)
-PICO W board showing LEDs and antenna connection
-
 ![pico-wwvb board with antenna](images/pico_wwvb_board_with_antenna.jpg)
 PICO W with antenna 
 
 ## The Radio Controlled Clocks
 
 I have three radio controlled clocks.
+
 - Marathon
 - Oregon Scientific
 - Casio 2688 Watch
@@ -105,6 +103,9 @@ significant bit is on GPIO 12.
 ### Antenna wires
 
 Take two of the male to female pin cables.  Cut the wire about two inches away from the male connector. (Throw away the female side.)  Solder one of these into hole for GPIO 1, and the other to the adjacent hole for ground.
+
+![pico-wwvb board](images/pico_wwvb_board.jpg)
+PICO W board showing LEDs and antenna connection
 
 ### Antenna
 
