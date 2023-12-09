@@ -22,19 +22,23 @@
 #define ST_ERROR 2
 
 // Progress
+// 1-7 Is the normal sequence.  The user should see an increasing count in this case.
 #define P_ALLOCATE_STATE 1
 #define P_INITIALIZE_WIFI 2
 #define P_INIT_RECIEVE 3
 #define P_WIFI_LOGIN 4
-#define P_DNS_RECEIVED 5
-#define P_TIME_RECEIVED 6
+#define P_DNS_REQUESTED 5
+#define P_DNS_RECEIVED 6
+#define P_TIME_RECEIVED 7
+#define P_UNABLE_TO_SET_RETRY_ALARM 8
 
 typedef struct NTP_T_ {
     ip_addr_t ntp_server_address;
-    bool dns_request_sent;
+    bool enable_retry;
     struct udp_pcb *ntp_pcb;
-    absolute_time_t ntp_test_time;
-    alarm_id_t ntp_resend_alarm;
+    absolute_time_t time_to_start_retry;
+    // The alarm id. 0 if no alarm active.
+    alarm_id_t alarm_id;
     time_t *utc;
     int status;  //ST_*
     void(*progress)(int p);
@@ -53,20 +57,20 @@ static NTP_T state;
 static void ntp_result(int status, time_t *result) {
     printf("ntp_result status=%d\n", status);
     state.status = status;
-    if (state.ntp_resend_alarm > 0) {
-        printf("cancelled alarm\n");
-        cancel_alarm(state.ntp_resend_alarm);
-        state.ntp_resend_alarm = 0;
+    if (state.alarm_id > 0) {
+        printf("cancelled alarm %d\n", state.alarm_id);
+        cancel_alarm(state.alarm_id);
+        state.alarm_id = 0;
     }
     if (status == ST_COMPLETE && result) {
-        state.progress(P_TIME_RECEIVED);
-        state.ntp_test_time = make_timeout_time_ms(0);
-        *state.utc = *result;
         printf("got ntp response: %lld\n", *result);
+        state.progress(P_TIME_RECEIVED);
+        state.time_to_start_retry = make_timeout_time_ms(0);
+        *state.utc = *result;
+        state.enable_retry = false;
     } else {
         printf(" setup for retry\n");
-        state.ntp_test_time = make_timeout_time_ms(NTP_TEST_TIME);
-        state.dns_request_sent = false;
+        state.time_to_start_retry = make_timeout_time_ms(NTP_TEST_TIME);
     }
 }
 
@@ -81,14 +85,16 @@ static void ntp_request() {
     uint8_t *req = (uint8_t *) p->payload;
     memset(req, 0, NTP_MSG_LEN);
     req[0] = 0x1b;
-    udp_sendto(state.ntp_pcb, p, &state.ntp_server_address, NTP_PORT);
+    err_t err = udp_sendto(state.ntp_pcb, p, &state.ntp_server_address, NTP_PORT);
+    printf("ntp_request: udp sent err=%d\n", err);
     pbuf_free(p);
     cyw43_arch_lwip_end();
-    printf("ntp request sent\n");
+    printf("ntp_request: exit\n");
 }
 
-static int64_t ntp_failed_handler(alarm_id_t id, void *user_data) {
+static int64_t retry_timer_handler(alarm_id_t id, void *user_data) {
     state.progress(-P_TIME_RECEIVED);
+    printf("retry_timer_handler: alarm=%d\n", id);
     ntp_result(ST_ERROR, NULL);
     return 0;
 }
@@ -115,6 +121,7 @@ static void ntp_recv(void *arg, struct udp_pcb *pcb, struct pbuf *p, const ip_ad
     // Check the result
     if (ip_addr_cmp(addr, &state.ntp_server_address) && port == NTP_PORT && p->tot_len == NTP_MSG_LEN &&
         mode == 0x4 && stratum != 0) {            
+        printf("ntp_recv: Time received\n");
         uint8_t seconds_buf[4] = {0};
         pbuf_copy_partial(p, seconds_buf, sizeof(seconds_buf), 40);
         uint32_t seconds_since_1900 = seconds_buf[0] << 24 | seconds_buf[1] << 16 | seconds_buf[2] << 8 | seconds_buf[3];
@@ -181,14 +188,24 @@ void ntp_end() {
 bool ntp_ask_for_time(time_t* utc) {
     state.utc = utc;
     state.status = ST_IN_PROGRESS;
-    state.ntp_test_time = get_absolute_time();
-    state.dns_request_sent = false;
+    state.time_to_start_retry = get_absolute_time();
+    state.enable_retry = true;
     printf("ntp_ask_for_time\n");
     
     while(state.status == ST_IN_PROGRESS) {
-        if (absolute_time_diff_us(get_absolute_time(), state.ntp_test_time) <= 0 && !state.dns_request_sent) {
+        if (absolute_time_diff_us(get_absolute_time(), state.time_to_start_retry) <= 0 && state.enable_retry) {
+            printf("Retry time reached.\n"); 
+            state.time_to_start_retry = make_timeout_time_ms(NTP_RESEND_TIME);
+            
+            
             // Set alarm in case udp requests are lost
-            state.ntp_resend_alarm = add_alarm_in_ms(NTP_RESEND_TIME, ntp_failed_handler, NULL, true);
+            state.alarm_id = add_alarm_in_ms(NTP_RESEND_TIME, retry_timer_handler, NULL, true);
+            if (state.alarm_id == -1) {
+                printf("Unable to set retry alarm");
+                state.progress(-P_UNABLE_TO_SET_RETRY_ALARM);
+                break;
+            }
+
 
             // cyw43_arch_lwip_begin/end should be used around calls into lwIP to ensure correct locking.
             // You can omit them if you are in a callback from lwIP. Note that when using pico_cyw_arch_poll
@@ -198,8 +215,8 @@ bool ntp_ask_for_time(time_t* utc) {
             err_t err = dns_gethostbyname(NTP_SERVER, &state.ntp_server_address, ntp_dns_found, NULL);
             cyw43_arch_lwip_end();
             printf("sent dns request err=%d\n", err);
+            state.progress(P_DNS_REQUESTED);
 
-            state.dns_request_sent = true;
             if (err == ERR_OK) {
                 ntp_request(state); // Cached result
             } else if (err != ERR_INPROGRESS) { // ERR_INPROGRESS means expect a callback
@@ -213,9 +230,7 @@ bool ntp_ask_for_time(time_t* utc) {
         // if you are using pico_cyw43_arch_poll, then you must poll periodically from your
         // main loop (not from a timer interrupt) to check for Wi-Fi driver or lwIP work that needs to be done.
         cyw43_arch_poll();
-        // you can poll as often as you like, however if you have nothing else to do you can
-        // choose to sleep until either a specified time, or cyw43_arch_poll() has work to do:
-        cyw43_arch_wait_for_work_until(state.dns_request_sent ? at_the_end_of_time : state.ntp_test_time);
+        cyw43_arch_wait_for_work_until(make_timeout_time_ms(1000L));
 #else
         // if you are not using pico_cyw43_arch_poll, then WiFI driver and lwIP work
         // is done via interrupt in the background. This sleep is just an example of some (blocking)

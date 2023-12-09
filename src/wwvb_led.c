@@ -14,7 +14,6 @@ static void init(int led_pin) {
 }
 
 void wwvb_led_init() {
-    init(PICO_DEFAULT_LED_PIN);
     init(LED_1);
     init(LED_2);
     init(LED_4);
@@ -42,10 +41,18 @@ void led_progress_ok(int p) {
 }
 
 void led_progress_error(int p) {
+    bool slow;
+
+    if (p > 7) {
+        p = p & 7;
+        slow = true;
+    } else
+        slow = false;
+
     for(int i=0; i<10; ++i) {
         led_progress_ok(p);
-        sleep_ms(250);
+        sleep_ms(slow ? 1000 : 250);
         led_progress_off();
-        sleep_ms(500);
+        sleep_ms(slow ? 2000 : 500);
     }
 }

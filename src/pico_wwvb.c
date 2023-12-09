@@ -89,7 +89,7 @@ static void init_clocks() {
 
 /** This delay gives the user time to connect a terminal to look at the usb output. */
 static void startup_delay() {
-    for(int i=0; i<8;++i) {
+    for(int i=7; i >= 0; --i) {
         printf("pici_wwvb start %d\n", i);
         for(int j=0; j<10;++j) {
             led_progress_ok(i);
@@ -120,10 +120,13 @@ int main() {
             printf("ntp_ask_for_time returns status=%d\n", status);
             if (status)
                 break;
+            printf("sleeping\n");
             sleep_ms(30*1000);
         }
+        printf("foot of for\n");
         led_progress_off();
 
+        printf("about to call broadcast_time\n");
         broadcast_time(time, 10);
     }    
     ntp_end();
@@ -133,6 +136,13 @@ void broadcast_time(
     time_t time,
     int max_transmissions
 ) {
+    printf("enter time=%lld\n", time);
+
+//Temp!!!
+    printf("time=%lld\n", time);
+    time += 24L*60L*60L;
+    printf("bumped time=%lld\n", time);
+
     struct tm *utc = gmtime(&time);
 
     int year = utc->tm_year+1900;
