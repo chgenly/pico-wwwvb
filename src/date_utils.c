@@ -1,6 +1,27 @@
 #include <stdio.h>
 #include <time.h>
+#include "pico/stdlib.h"
 #include "date_utils.h"
+
+
+void print_absolute_time(absolute_time_t abstime) {
+    uint64_t t64 = to_us_since_boot(abstime);
+    long long seconds = t64 / 1000000;
+    long long us = t64 - seconds * 1000000;
+
+    printf("seconds %lld.%06lld\n", seconds, us);
+}
+
+void print_date_time(time_t time) {
+    struct tm *utc = gmtime(&time);
+    int year = utc->tm_year+1900;
+    int month = utc->tm_mon+1;
+    int day = utc->tm_mday;
+    int hour = utc->tm_hour;
+    int minute = utc->tm_min;
+    int second = utc->tm_sec;
+    printf("%d/%d/%d %d:%d:%d\n", month, day, year, hour, minute, second);
+}
 
 int is_leap_year(int year) {
     return (year % 4 ==  0) && (year % 100 != 0 || year % 400 ==  0);

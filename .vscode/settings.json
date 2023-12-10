@@ -10,7 +10,8 @@
         "gpio.h": "c",
         "flash.h": "c",
         "cyw43_arch.h": "c",
-        "wwvb_led.h": "c"
+        "wwvb_led.h": "c",
+        "date_utils.h": "c"
     },
     "cmake.configureSettings": {
 

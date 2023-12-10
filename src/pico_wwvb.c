@@ -151,7 +151,7 @@ void broadcast_time(
     int hour = utc->tm_hour;
     int minute = utc->tm_min;
     int second = utc->tm_sec;
-    printf("%d/%d/%d %d:%d:%d\n", month, day, year, hour, minute, second);
+    print_date_time(time);
 
     int broadcasts = 0;
     int doy = day_of_year(day, month, year);

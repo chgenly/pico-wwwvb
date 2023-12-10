@@ -4,6 +4,7 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
+#include <stdlib.h>
 #include <string.h>
 #include <time.h>
 
@@ -13,6 +14,7 @@
 #include "lwip/dns.h"
 #include "lwip/pbuf.h"
 #include "lwip/udp.h"
+#include "date_utils.h"
 
 #include "picow_ntp_client.h"
 
@@ -37,8 +39,6 @@ typedef struct NTP_T_ {
     bool enable_retry;
     struct udp_pcb *ntp_pcb;
     absolute_time_t time_to_start_retry;
-    // The alarm id. 0 if no alarm active.
-    alarm_id_t alarm_id;
     time_t *utc;
     int status;  //ST_*
     void(*progress)(int p);
@@ -50,18 +50,47 @@ static NTP_T state;
 #define NTP_MSG_LEN 48
 #define NTP_PORT 123
 #define NTP_DELTA 2208988800 // seconds between 1 Jan 1900 and 1 Jan 1970
-#define NTP_TEST_TIME (30 * 1000)
-#define NTP_RESEND_TIME (10 * 1000)
+#define NTP_RETRY_TIME (30 * 1000)
+
+// Define FORCE_ERRORS to force loss of DNS and NTP packtes to test retry.
+// An error will be forced once of of FORCE_ERRORS times.
+//#define FORCE_ERRORS 2
+#define FE_TEST_CASE FE_NTP
+
+#define FE_NTP 0
+#define FE_DNS_REQUEST 1
+#define FE_DNS_RECEIVE 2
+
+#ifdef FORCE_ERRORS
+int force_error_counter;
+
+static char *force_error_name[] = {"NTP", "DNS_REQUEST", "DNS_RECEIVE"};
+
+static bool is_force_error(int kind) {
+    if (kind == FE_TEST_CASE) {
+        bool err = ++force_error_counter%FORCE_ERRORS == 0;
+        if (err) {
+            printf("*********************************************\n");
+            printf("Forcing error: %s\n", force_error_name[kind]);
+            printf("current time: "); print_absolute_time(get_absolute_time());
+            printf("retry time: "); print_absolute_time(state.time_to_start_retry);
+            printf("enable_retry %d\n", state.enable_retry);
+            printf("*********************************************\n");
+            return err;
+        }
+    }
+    return false;
+}
+#else
+static bool is_force_error(int kind) {
+    return false;
+}
+#endif
 
 // Called with results of operation
 static void ntp_result(int status, time_t *result) {
     printf("ntp_result status=%d\n", status);
     state.status = status;
-    if (state.alarm_id > 0) {
-        printf("cancelled alarm %d\n", state.alarm_id);
-        cancel_alarm(state.alarm_id);
-        state.alarm_id = 0;
-    }
     if (status == ST_COMPLETE && result) {
         printf("got ntp response: %lld\n", *result);
         state.progress(P_TIME_RECEIVED);
@@ -70,38 +99,34 @@ static void ntp_result(int status, time_t *result) {
         state.enable_retry = false;
     } else {
         printf(" setup for retry\n");
-        state.time_to_start_retry = make_timeout_time_ms(NTP_TEST_TIME);
+        state.time_to_start_retry = make_timeout_time_ms(NTP_RETRY_TIME);
     }
 }
 
 // Make an NTP request
 static void ntp_request() {
+    if (is_force_error(FE_NTP))
+         return;
+
     // cyw43_arch_lwip_begin/end should be used around calls into lwIP to ensure correct locking.
     // You can omit them if you are in a callback from lwIP. Note that when using pico_cyw_arch_poll
     // these calls are a no-op and can be omitted, but it is a good practice to use them in
     // case you switch the cyw43_arch type later.
     cyw43_arch_lwip_begin();
     struct pbuf *p = pbuf_alloc(PBUF_TRANSPORT, NTP_MSG_LEN, PBUF_RAM);
-    uint8_t *req = (uint8_t *) p->payload;
+    uint8_t *req = (uint8_t *)p->payload;
     memset(req, 0, NTP_MSG_LEN);
     req[0] = 0x1b;
     err_t err = udp_sendto(state.ntp_pcb, p, &state.ntp_server_address, NTP_PORT);
     printf("ntp_request: udp sent err=%d\n", err);
+    printf("  current time: "); print_absolute_time(get_absolute_time());
     pbuf_free(p);
     cyw43_arch_lwip_end();
-    printf("ntp_request: exit\n");
-}
-
-static int64_t retry_timer_handler(alarm_id_t id, void *user_data) {
-    state.progress(-P_TIME_RECEIVED);
-    printf("retry_timer_handler: alarm=%d\n", id);
-    ntp_result(ST_ERROR, NULL);
-    return 0;
 }
 
 // Call back with a DNS result
 static void ntp_dns_found(const char *hostname, const ip_addr_t *ipaddr, void *arg) {
-    if (ipaddr) {
+    if (!is_force_error(FE_DNS_RECEIVE) && ipaddr) {
         state.progress(P_DNS_RECEIVED);
         state.ntp_server_address = *ipaddr;
         printf("ntp address %s\n", ipaddr_ntoa(ipaddr));
@@ -193,27 +218,24 @@ bool ntp_ask_for_time(time_t* utc) {
     printf("ntp_ask_for_time\n");
     
     while(state.status == ST_IN_PROGRESS) {
+        // printf("enable retry=%d  time to wait %lld\n",  state.enable_retry, absolute_time_diff_us(get_absolute_time(), state.time_to_start_retry));
         if (absolute_time_diff_us(get_absolute_time(), state.time_to_start_retry) <= 0 && state.enable_retry) {
             printf("Retry time reached.\n"); 
-            state.time_to_start_retry = make_timeout_time_ms(NTP_RESEND_TIME);
+            state.time_to_start_retry = make_timeout_time_ms(NTP_RETRY_TIME);
             
-            
-            // Set alarm in case udp requests are lost
-            state.alarm_id = add_alarm_in_ms(NTP_RESEND_TIME, retry_timer_handler, NULL, true);
-            if (state.alarm_id == -1) {
-                printf("Unable to set retry alarm");
-                state.progress(-P_UNABLE_TO_SET_RETRY_ALARM);
-                break;
-            }
-
-
-            // cyw43_arch_lwip_begin/end should be used around calls into lwIP to ensure correct locking.
+            // cyw43_arch_l wip_begin/end should be used around calls into lwIP to ensure correct locking.
             // You can omit them if you are in a callback from lwIP. Note that when using pico_cyw_arch_poll
             // these calls are a no-op and can be omitted, but it is a good practice to use them in
             // case you switch the cyw43_arch type later.
-            cyw43_arch_lwip_begin();
-            err_t err = dns_gethostbyname(NTP_SERVER, &state.ntp_server_address, ntp_dns_found, NULL);
-            cyw43_arch_lwip_end();
+            err_t err;
+            if (is_force_error(FE_DNS_REQUEST)) {
+                printf("DNS request forced error\n");
+                err = ERR_VAL;
+            } else {
+                cyw43_arch_lwip_begin();
+                err = dns_gethostbyname(NTP_SERVER, &state.ntp_server_address, ntp_dns_found, NULL);
+                cyw43_arch_lwip_end();
+            }
             printf("sent dns request err=%d\n", err);
             state.progress(P_DNS_REQUESTED);
 
@@ -230,7 +252,9 @@ bool ntp_ask_for_time(time_t* utc) {
         // if you are using pico_cyw43_arch_poll, then you must poll periodically from your
         // main loop (not from a timer interrupt) to check for Wi-Fi driver or lwIP work that needs to be done.
         cyw43_arch_poll();
+        // printf("- about to wait now= "); print_absolute_time(get_absolute_time());
         cyw43_arch_wait_for_work_until(make_timeout_time_ms(1000L));
+        // printf("- done waiting\n");
 #else
         // if you are not using pico_cyw43_arch_poll, then WiFI driver and lwIP work
         // is done via interrupt in the background. This sleep is just an example of some (blocking)
