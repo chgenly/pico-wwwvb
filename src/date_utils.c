@@ -3,13 +3,15 @@
 #include "pico/stdlib.h"
 #include "date_utils.h"
 
+void print_time_us(int64_t t64) {
+    long long seconds = t64 / 1000000;
+    long long us = t64 - seconds * 1000000;
+    printf("seconds %lld.%06lld\n", seconds, us);
+}
 
 void print_absolute_time(absolute_time_t abstime) {
     uint64_t t64 = to_us_since_boot(abstime);
-    long long seconds = t64 / 1000000;
-    long long us = t64 - seconds * 1000000;
-
-    printf("seconds %lld.%06lld\n", seconds, us);
+    print_time_us(t64); 
 }
 
 void print_date_time(time_t time) {
@@ -114,7 +116,6 @@ int day_of_year(int day, int month, int year) {
 }
 
 int is_daylight_savings_time(time_t time) {
-    printf("is_daylight_savings_time %lld\n", time);
     struct tm *utc = gmtime(&time);
 
     int year = utc->tm_year+1900;

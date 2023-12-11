@@ -1,3 +1,4 @@
+void print_time_us(int64_t t64);
 void print_absolute_time(absolute_time_t abstime);
 void print_date_time(time_t time);
 int is_leap_year(int year);

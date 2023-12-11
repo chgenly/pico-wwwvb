@@ -4,6 +4,7 @@ add_executable(pico_wwvb
         picow_ntp_client.c
         wwvb_pwm.c
         wwvb_led.c
+        measure.c
         )
 pico_enable_stdio_usb(pico_wwvb 1)
 pico_enable_stdio_uart(pico_wwvb 0)

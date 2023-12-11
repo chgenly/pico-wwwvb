@@ -5,7 +5,6 @@
 #include "pico/stdlib.h"
 #include "pico/util/datetime.h"
 #include "pico/cyw43_arch.h"
-#include "hardware/clocks.h"
 #include "hardware/pll.h"
 #include "hardware/pwm.h"
 #include "lwip/dns.h"
@@ -16,6 +15,8 @@
 #include "wwvb_led.h"
 #include "hardware/flash.h"
 #include "date_utils.h"
+#include "debug.h"
+#include "measure.h"
 
 void gen_mark();
 void gen_zero();
@@ -34,58 +35,6 @@ void progress(int p) {
         led_progress_error(-p);
 }
 
-static void measure_freqs(void) {
-    uint f_pll_sys = frequency_count_khz(CLOCKS_FC0_SRC_VALUE_PLL_SYS_CLKSRC_PRIMARY);
-    uint f_pll_usb = frequency_count_khz(CLOCKS_FC0_SRC_VALUE_PLL_USB_CLKSRC_PRIMARY);
-    uint f_rosc = frequency_count_khz(CLOCKS_FC0_SRC_VALUE_ROSC_CLKSRC);
-    uint f_clk_sys = frequency_count_khz(CLOCKS_FC0_SRC_VALUE_CLK_SYS);
-    uint f_clk_peri = frequency_count_khz(CLOCKS_FC0_SRC_VALUE_CLK_PERI);
-    uint f_clk_usb = frequency_count_khz(CLOCKS_FC0_SRC_VALUE_CLK_USB);
-    uint f_clk_adc = frequency_count_khz(CLOCKS_FC0_SRC_VALUE_CLK_ADC);
-    uint f_clk_rtc = frequency_count_khz(CLOCKS_FC0_SRC_VALUE_CLK_RTC);
-
-    printf("pll_sys  = %dkHz\n", f_pll_sys);
-    printf("pll_usb  = %dkHz\n", f_pll_usb);
-    printf("rosc     = %dkHz\n", f_rosc);
-    printf("clk_sys  = %dkHz\n", f_clk_sys);
-    printf("clk_peri = %dkHz\n", f_clk_peri);
-    printf("clk_usb  = %dkHz\n", f_clk_usb);
-    printf("clk_adc  = %dkHz\n", f_clk_adc);
-    printf("clk_rtc  = %dkHz\n", f_clk_rtc);
-
-    // Can't measure clk_ref / xosc as it is the ref
-}
-
-// System clock to 48 mhz.
-// Peripheral clock to 48mhz.
-static void init_clocks() {
-    measure_freqs();
-
-    // clocks_init();
-
-    // // Change clk_sys to be 48MHz. The simplest way is to take this from PLL_USB
-    // // which has a source frequency of 48MHz
-    // clock_configure(clk_sys,
-    //                 CLOCKS_CLK_SYS_CTRL_SRC_VALUE_CLKSRC_CLK_SYS_AUX,
-    //                 CLOCKS_CLK_SYS_CTRL_AUXSRC_VALUE_CLKSRC_PLL_USB,
-    //                 48 * MHZ,
-    //                 48 * MHZ);
-
-    // // Turn off PLL sys for good measure
-    // pll_deinit(pll_sys);
-
-    // // CLK peri is clocked from clk_sys so need to change clk_peri's freq
-    // clock_configure(clk_peri,
-    //                 0,
-    //                 CLOCKS_CLK_PERI_CTRL_AUXSRC_VALUE_CLK_SYS,
-    //                 48 * MHZ,
-    //                 48 * MHZ);
-
-    // // Re init uart now that clk_peri has changed
-    // stdio_init_all();
-
-    // measure_freqs();
-}
 
 /** This delay gives the user time to connect a terminal to look at the usb output. */
 static void startup_delay() {
@@ -109,7 +58,7 @@ int main() {
 
     startup_delay();
     wwvb_pwm_init();
-    init_clocks();
+    measure_freqs();
 
     printf("flash_block=%x\n", flash_block);
     ntp_start(progress);
@@ -117,16 +66,11 @@ int main() {
     for(;;) {
         for(;;) {
             status = ntp_ask_for_time(&time);
-            printf("ntp_ask_for_time returns status=%d\n", status);
             if (status)
                 break;
-            printf("sleeping\n");
             sleep_ms(30*1000);
         }
-        printf("foot of for\n");
         led_progress_off();
-
-        printf("about to call broadcast_time\n");
         broadcast_time(time, 10);
     }    
     ntp_end();
@@ -136,13 +80,6 @@ void broadcast_time(
     time_t time,
     int max_transmissions
 ) {
-    printf("enter time=%lld\n", time);
-
-//Temp!!!
-    printf("time=%lld\n", time);
-    time += 24L*60L*60L;
-    printf("bumped time=%lld\n", time);
-
     struct tm *utc = gmtime(&time);
 
     int year = utc->tm_year+1900;
@@ -164,7 +101,7 @@ void broadcast_time(
     // from 1 to 0 exactly 24 hours later.
     int dst1 = is_daylight_savings_time(time);
     int dst2 = is_daylight_savings_time(time-24*60*60);
-    printf("dst1=%d dst2=%d\n", dst1, dst2);
+    dprintf1("dst1=%d dst2=%d\n", dst1, dst2);
 
     while (1) {
         unsigned char bit=0; // 2 = mark, 1 = "1", 0 = "0"

@@ -17,6 +17,7 @@
 #include "date_utils.h"
 
 #include "picow_ntp_client.h"
+#include "debug.h"
 
 // Status
 #define ST_COMPLETE 0
@@ -41,6 +42,7 @@ typedef struct NTP_T_ {
     absolute_time_t time_to_start_retry;
     time_t *utc;
     int status;  //ST_*
+    absolute_time_t ntp_send_time_us; // Time ntp packet was sent in us.
     void(*progress)(int p);
 } NTP_T;
 
@@ -89,16 +91,15 @@ static bool is_force_error(int kind) {
 
 // Called with results of operation
 static void ntp_result(int status, time_t *result) {
-    printf("ntp_result status=%d\n", status);
     state.status = status;
     if (status == ST_COMPLETE && result) {
-        printf("got ntp response: %lld\n", *result);
+        dprintf1("ntp_result ok: %lld\n", *result);
         state.progress(P_TIME_RECEIVED);
         state.time_to_start_retry = make_timeout_time_ms(0);
         *state.utc = *result;
         state.enable_retry = false;
     } else {
-        printf(" setup for retry\n");
+        dprintf1("ntp_result: setup for retry\n");
         state.time_to_start_retry = make_timeout_time_ms(NTP_RETRY_TIME);
     }
 }
@@ -118,8 +119,9 @@ static void ntp_request() {
     memset(req, 0, NTP_MSG_LEN);
     req[0] = 0x1b;
     err_t err = udp_sendto(state.ntp_pcb, p, &state.ntp_server_address, NTP_PORT);
-    printf("ntp_request: udp sent err=%d\n", err);
-    printf("  current time: "); print_absolute_time(get_absolute_time());
+    if (err != ERR_OK)
+        printf("ntp_request: udp sent err=%d\n", err);
+    state.ntp_send_time_us = get_absolute_time();
     pbuf_free(p);
     cyw43_arch_lwip_end();
 }
@@ -129,10 +131,10 @@ static void ntp_dns_found(const char *hostname, const ip_addr_t *ipaddr, void *a
     if (!is_force_error(FE_DNS_RECEIVE) && ipaddr) {
         state.progress(P_DNS_RECEIVED);
         state.ntp_server_address = *ipaddr;
-        printf("ntp address %s\n", ipaddr_ntoa(ipaddr));
+        dprintf1("ntp_dns_found address %s\n", ipaddr_ntoa(ipaddr));
         ntp_request(state);
     } else {
-        printf("ntp dns request timed out\n");
+        dprintf1("ntp_dns_found: dns request timed out\n");
         ntp_result(ST_ERROR, NULL);
         state.progress(-P_DNS_RECEIVED);
     }
@@ -146,15 +148,22 @@ static void ntp_recv(void *arg, struct udp_pcb *pcb, struct pbuf *p, const ip_ad
     // Check the result
     if (ip_addr_cmp(addr, &state.ntp_server_address) && port == NTP_PORT && p->tot_len == NTP_MSG_LEN &&
         mode == 0x4 && stratum != 0) {            
-        printf("ntp_recv: Time received\n");
+        dprintf1("ntp_recv: Time received\n");
         uint8_t seconds_buf[4] = {0};
         pbuf_copy_partial(p, seconds_buf, sizeof(seconds_buf), 40);
         uint32_t seconds_since_1900 = seconds_buf[0] << 24 | seconds_buf[1] << 16 | seconds_buf[2] << 8 | seconds_buf[3];
         uint32_t seconds_since_1970 = seconds_since_1900 - NTP_DELTA;
         time_t epoch = seconds_since_1970;
+        int64_t round_trip_delay_us = absolute_time_diff_us(state.ntp_send_time_us, get_absolute_time());
+        int32_t one_way_delay_seconds = round_trip_delay_us / 1000000L / 2;
+        epoch += one_way_delay_seconds;
+        dprintf1("one way trip delay: ");
+#if DEBUG_LEVEL >= 1
+         print_time_us(round_trip_delay_us/2);
+#endif
         ntp_result(ST_COMPLETE, &epoch);
     } else {
-        printf("invalid ntp response\n");
+        dprintf1("ntp_recv: invalid ntp response\n");
         ntp_result(ST_ERROR, NULL);
     }
     pbuf_free(p);
@@ -171,16 +180,15 @@ static void ntp_init_recv() {
     state.progress(P_INIT_RECIEVE);
 }
 
-
 bool ntp_start(void(*progress)(int p)) {
-    printf("ntp_start\n");
+    dprintf1("ntp_start\n");
     memset(&state, 0, sizeof(NTP_T));
     state.progress = progress;
     state.status = ST_IN_PROGRESS;
     progress(P_ALLOCATE_STATE);
 
     if (cyw43_arch_init()) {
-        printf("failed to initialise wifi\n");
+        dprintf1("ntp_start: failed to initialize wifi\n");
         state.status = ST_ERROR;
         state.progress(-P_INITIALIZE_WIFI);
         return false;
@@ -192,7 +200,7 @@ bool ntp_start(void(*progress)(int p)) {
     cyw43_arch_enable_sta_mode();
 
     if (cyw43_arch_wifi_connect_timeout_ms(WIFI_SSID, WIFI_PASSWORD, CYW43_AUTH_WPA2_AES_PSK, 10000)) {
-        printf("failed to connect\n");
+        dprintf1("ntp_start: failed to connect\n");
         state.progress(-P_WIFI_LOGIN);
         return false;
     }
@@ -215,12 +223,12 @@ bool ntp_ask_for_time(time_t* utc) {
     state.status = ST_IN_PROGRESS;
     state.time_to_start_retry = get_absolute_time();
     state.enable_retry = true;
-    printf("ntp_ask_for_time\n");
+    dprintf1("ntp_ask_for_time\n");
     
     while(state.status == ST_IN_PROGRESS) {
-        // printf("enable retry=%d  time to wait %lld\n",  state.enable_retry, absolute_time_diff_us(get_absolute_time(), state.time_to_start_retry));
+        dprintf3("ntp_start: enable retry=%d  time to wait %lld\n",  state.enable_retry, absolute_time_diff_us(get_absolute_time(), state.time_to_start_retry));
         if (absolute_time_diff_us(get_absolute_time(), state.time_to_start_retry) <= 0 && state.enable_retry) {
-            printf("Retry time reached.\n"); 
+            dprintf1("ntp_start: Retry time reached.\n"); 
             state.time_to_start_retry = make_timeout_time_ms(NTP_RETRY_TIME);
             
             // cyw43_arch_l wip_begin/end should be used around calls into lwIP to ensure correct locking.
@@ -229,20 +237,19 @@ bool ntp_ask_for_time(time_t* utc) {
             // case you switch the cyw43_arch type later.
             err_t err;
             if (is_force_error(FE_DNS_REQUEST)) {
-                printf("DNS request forced error\n");
                 err = ERR_VAL;
             } else {
                 cyw43_arch_lwip_begin();
                 err = dns_gethostbyname(NTP_SERVER, &state.ntp_server_address, ntp_dns_found, NULL);
                 cyw43_arch_lwip_end();
             }
-            printf("sent dns request err=%d\n", err);
+            dprintf1("ntp_start: sent dns request err=%d\n", err);
             state.progress(P_DNS_REQUESTED);
 
             if (err == ERR_OK) {
                 ntp_request(state); // Cached result
             } else if (err != ERR_INPROGRESS) { // ERR_INPROGRESS means expect a callback
-                printf("dns request failed\n");
+                dprintf1("dns request failed\n");
                 ntp_result(ST_ERROR, NULL);
                 state.progress(-P_DNS_RECEIVED);
                 break;
