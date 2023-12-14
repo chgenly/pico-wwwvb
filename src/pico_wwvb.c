@@ -1,3 +1,4 @@
+#include <math.h>
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
@@ -22,7 +23,7 @@ void gen_mark();
 void gen_zero();
 void gen_one();
 void broadcast_time(
-    time_t time,
+    time_t utc_seconds_since_1970,
     int max_transmissions
 );
 
@@ -49,9 +50,26 @@ static void startup_delay() {
     }
 }
 
+int32_t wait_for_second_boundary(double *pfutc_seconds_since_1970) {
+    double futc_seconds_since_1970 = *pfutc_seconds_since_1970;
+#if DEBUG_LEVEL >= 2
+    printf("wait_for_second_boundary: ");
+    print_data_time(futc_seconds_since_1970);
+#endif
+    uint32_t whole_seconds = floor(futc_seconds_since_1970);
+    double second_fraction = futc_seconds_since_1970 - whole_seconds;
+    uint32_t ms_to_wait = 1000 - second_fraction * 1000;
+    dprintf2("  whole seconds=%d\n", whole_seconds);
+    dprintf2("  ms to wait=%d\n", ms_to_wait);
+    if (ms_to_wait == 0)
+        return whole_seconds;
+    sleep_ms(ms_to_wait);
+    return whole_seconds+1;
+}
+
 int main() {
     int status;
-    time_t time;
+    double futc_seconds_since_1970;
 
     stdio_init_all();
     wwvb_led_init();
@@ -65,22 +83,23 @@ int main() {
     
     for(;;) {
         for(;;) {
-            status = ntp_ask_for_time(&time);
+            status = ntp_ask_for_time(&futc_seconds_since_1970);
             if (status)
                 break;
             sleep_ms(30*1000);
         }
         led_progress_off();
-        broadcast_time(time, 10);
+        int32_t utc_seconds_since_1970 = wait_for_second_boundary(&futc_seconds_since_1970);
+        broadcast_time(utc_seconds_since_1970, 10);
     }    
     ntp_end();
 }
 
 void broadcast_time(
-    time_t time,
+    time_t utc_seconds_since_1970,
     int max_transmissions
 ) {
-    struct tm *utc = gmtime(&time);
+    struct tm *utc = gmtime(&utc_seconds_since_1970);
 
     int year = utc->tm_year+1900;
     int month = utc->tm_mon+1;
@@ -88,7 +107,9 @@ void broadcast_time(
     int hour = utc->tm_hour;
     int minute = utc->tm_min;
     int second = utc->tm_sec;
-    print_date_time(time);
+#if DEBUG_LEVEL >= 1    
+    print_date_time(utc_seconds_since_1970);
+#endif
 
     int broadcasts = 0;
     int doy = day_of_year(day, month, year);
@@ -99,8 +120,8 @@ void broadcast_time(
     // 1 at 0000 UTC, and bit 58 changes from 0 to 1 exactly 24 hours later. On the day of a
     // change from DST back to ST bit 57 changes from 1 to 0 at 0000 UTC, and bit 58 changes
     // from 1 to 0 exactly 24 hours later.
-    int dst1 = is_daylight_savings_time(time);
-    int dst2 = is_daylight_savings_time(time-24*60*60);
+    int dst1 = is_daylight_savings_time(utc_seconds_since_1970);
+    int dst2 = is_daylight_savings_time(utc_seconds_since_1970-24*60*60);
     dprintf1("dst1=%d dst2=%d\n", dst1, dst2);
 
     while (1) {

@@ -7,6 +7,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <math.h>
 
 #include "pico/stdlib.h"
 #include "pico/cyw43_arch.h"
@@ -40,7 +41,7 @@ typedef struct NTP_T_ {
     bool enable_retry;
     struct udp_pcb *ntp_pcb;
     absolute_time_t time_to_start_retry;
-    time_t *utc;
+    double *futc_seconds_since_1970;
     int status;  //ST_*
     absolute_time_t ntp_send_time_us; // Time ntp packet was sent in us.
     void(*progress)(int p);
@@ -90,13 +91,13 @@ static bool is_force_error(int kind) {
 #endif
 
 // Called with results of operation
-static void ntp_result(int status, time_t *result) {
+static void ntp_result(int status, double *result) {
     state.status = status;
     if (status == ST_COMPLETE && result) {
-        dprintf1("ntp_result ok: %lld\n", *result);
+        dprintf1("ntp_result ok: %f\n", *result);
         state.progress(P_TIME_RECEIVED);
         state.time_to_start_retry = make_timeout_time_ms(0);
-        *state.utc = *result;
+        *state.futc_seconds_since_1970 = *result;
         state.enable_retry = false;
     } else {
         dprintf1("ntp_result: setup for retry\n");
@@ -140,6 +141,8 @@ static void ntp_dns_found(const char *hostname, const ip_addr_t *ipaddr, void *a
     }
 }
 
+static double two_to_32 = 4294967296.0;
+
 // NTP data received
 static void ntp_recv(void *arg, struct udp_pcb *pcb, struct pbuf *p, const ip_addr_t *addr, u16_t port) {
     uint8_t mode = pbuf_get_at(p, 0) & 0x7;
@@ -148,20 +151,36 @@ static void ntp_recv(void *arg, struct udp_pcb *pcb, struct pbuf *p, const ip_ad
     // Check the result
     if (ip_addr_cmp(addr, &state.ntp_server_address) && port == NTP_PORT && p->tot_len == NTP_MSG_LEN &&
         mode == 0x4 && stratum != 0) {            
-        dprintf1("ntp_recv: Time received\n");
+        dprintf1("ntp_recv:\n");
+
         uint8_t seconds_buf[4] = {0};
         pbuf_copy_partial(p, seconds_buf, sizeof(seconds_buf), 40);
         uint32_t seconds_since_1900 = seconds_buf[0] << 24 | seconds_buf[1] << 16 | seconds_buf[2] << 8 | seconds_buf[3];
+
+        pbuf_copy_partial(p, seconds_buf, sizeof(seconds_buf), 44);
+        uint32_t fractions_of_a_second = seconds_buf[0] << 24 | seconds_buf[1] << 16 | seconds_buf[2] << 8 | seconds_buf[3];
+        double ffraction = ((double)fractions_of_a_second) / two_to_32;
+        
         uint32_t seconds_since_1970 = seconds_since_1900 - NTP_DELTA;
-        time_t epoch = seconds_since_1970;
-        int64_t round_trip_delay_us = absolute_time_diff_us(state.ntp_send_time_us, get_absolute_time());
-        int32_t one_way_delay_seconds = round_trip_delay_us / 1000000L / 2;
-        epoch += one_way_delay_seconds;
-        dprintf1("one way trip delay: ");
+        double fseconds_since_1970 = seconds_since_1970 + ffraction;
 #if DEBUG_LEVEL >= 1
-         print_time_us(round_trip_delay_us/2);
+        printf("seconds_since_1970 %uld\n", seconds_since_1970);
+        printf("fraction %uld\n", fractions_of_a_second);
+        printf("usec %f\n", ffraction);
+        printf("ftime %12f\n", fseconds_since_1970);
 #endif
-        ntp_result(ST_COMPLETE, &epoch);
+
+
+        double round_trip_delay_us = absolute_time_diff_us(state.ntp_send_time_us, get_absolute_time());
+        double one_way_delay_seconds = round_trip_delay_us / 1000000L / 2;
+        fseconds_since_1970 += one_way_delay_seconds;
+        
+#if DEBUG_LEVEL >= 1
+        print_data_time(fseconds_since_1970);
+        dprintf1("one way trip delay: ");
+        print_time_us(round_trip_delay_us/2);
+#endif
+        ntp_result(ST_COMPLETE, &fseconds_since_1970);
     } else {
         dprintf1("ntp_recv: invalid ntp response\n");
         ntp_result(ST_ERROR, NULL);
@@ -214,12 +233,12 @@ void ntp_end() {
 
 /**
  * Ask NTP for time.
- * utc - Time structure passed by caller, to be filled in by this function.
+ * utc_seconds_since_1970 - Time structure passed by caller, to be filled in by this function.
  * progress - Callback to report progress.
  * return true if success. 
  */
-bool ntp_ask_for_time(time_t* utc) {
-    state.utc = utc;
+bool ntp_ask_for_time(double* futc_seconds_since_1970) {
+    state.futc_seconds_since_1970 = futc_seconds_since_1970;
     state.status = ST_IN_PROGRESS;
     state.time_to_start_retry = get_absolute_time();
     state.enable_retry = true;

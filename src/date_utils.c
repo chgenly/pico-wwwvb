@@ -1,3 +1,4 @@
+#include <math.h>
 #include <stdio.h>
 #include <time.h>
 #include "pico/stdlib.h"
@@ -23,6 +24,22 @@ void print_date_time(time_t time) {
     int minute = utc->tm_min;
     int second = utc->tm_sec;
     printf("%d/%d/%d %d:%d:%d\n", month, day, year, hour, minute, second);
+}
+
+void print_data_time(double fseconds_since_1970) {
+    uint32_t whole_seconds = floor(fseconds_since_1970);
+    double second_fraction = fseconds_since_1970 - whole_seconds;
+    uint32_t ms = 1000 - second_fraction * 1000;
+
+    time_t tt = (time_t)whole_seconds;
+    struct tm *utc = gmtime(&tt);
+    int year = utc->tm_year+1900;
+    int month = utc->tm_mon+1;
+    int day = utc->tm_mday;
+    int hour = utc->tm_hour;
+    int minute = utc->tm_min;
+    int second = utc->tm_sec;
+    printf("%d/%d/%d %d:%d:%d %dms\n", month, day, year, hour, minute, second, ms);
 }
 
 int is_leap_year(int year) {
