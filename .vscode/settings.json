@@ -12,7 +12,8 @@
         "cyw43_arch.h": "c",
         "wwvb_led.h": "c",
         "date_utils.h": "c",
-        "measure.h": "c"
+        "measure.h": "c",
+        "cstdio": "cpp"
     },
     "cmake.configureSettings": {
 

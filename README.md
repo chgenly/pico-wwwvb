@@ -112,3 +112,46 @@ PICO W board showing LEDs and antenna connection
 Solder the 10 &micro;F capacitor in line with one of the antenna leads.  Solder the other antenna lead to the three pin header.  Solder the free side of the capacitor to another pin on the header.
 
 You can now plug the pins from the wires connected to the board into the antenna connector.
+
+
+## Debug
+
+(Can't get this to work. I ordered a pico debug probe)
+
+You can debug a Raspberry Pi Pico board directly connectd to a PC via USB.  
+
+See [How to debug using vscode](https://github.com/majbthrd/pico-debug/blob/master/howto/vscode1.md)
+
+Copy
+C:\Program Files\Raspberry Pi\Pico SDK v1.5.1\openocd\scripts\board\pico-debug.cfg
+to
+.vscode/launch.json
+
+Edit launch.json to point to the right elf file.  (build/src/pico_wwvb.elf)
+
+Download pico-debug-gimmecache.uf2 from the pico-debug github site.  Boot the pico 
+with the BOOTSEL button pressed and drop the uf2 file.  Now you're ready to use 
+the debugger in VS code.
+
+Select the Run/Start Debugging menu item.
+
+
+# printf doesn't work with tiny usb
+
+These are notes on tracking down why printf doesn't
+work when tinyusb is used.
+
+Printf sends character to a device via driver.  The `stdio_set_driver_enabled` call adds and removes drivers from the driver list.
+```c
+        stdio_set_driver_enabled(&stdio_usb, true);
+```
+
+This is called from these:
+
+`bool stdio_usb_init(void)` // In stdio_usb.c
+
+`void stdio_semihosting_init()` //In stdio_semihosting
+
+`void stdio_uart_init_full(struct uart_inst *uart, uint baud_rate, int tx_pin, int rx_pin)` //In stdio_uart.c
+
+Which is called from `stdin_uart_init()`
