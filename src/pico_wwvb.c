@@ -2,6 +2,8 @@
 #include <stdio.h>
 #include <string.h>
 #include <time.h>
+#include "bsp/board.h"
+#include "tusb.h"
 #include <pico/types.h>
 #include "pico/stdlib.h"
 #include "pico/util/datetime.h"
@@ -77,6 +79,11 @@ int main() {
     startup_delay();
     wwvb_pwm_init();
     measure_freqs();
+
+    board_init();
+
+    // init device stack on configured roothub port
+    tud_init(BOARD_TUD_RHPORT);
 
     printf("flash_block=%x\n", flash_block);
     ntp_start(progress);

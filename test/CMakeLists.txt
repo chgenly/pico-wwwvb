@@ -25,19 +25,18 @@ pico_add_extra_outputs(test_dow)
 
 add_executable(test_mass_storage
         test_mass_storage.c
-        ../src/mass_storage/msc_disk_dual.c
-        ../src/mass_storage/usb_descriptors.c
         )
 
 target_include_directories(test_mass_storage PRIVATE
         ../src
-        ../src/mass_storage
         )
+
 target_link_libraries(test_mass_storage 
+                mass_storage
                 pico_stdlib 
                 pico_cyw43_arch_lwip_poll 
                 tinyusb_device tinyusb_board
         )
 
 # create map/bin/hex file etc.
-pico_add_extra_outputs(test_dow)
+pico_add_extra_outputs(test_mass_storage)

@@ -13,7 +13,8 @@
         "wwvb_led.h": "c",
         "date_utils.h": "c",
         "measure.h": "c",
-        "cstdio": "cpp"
+        "tusb.h": "c",
+        "tusb_common.h": "c"
     },
     "cmake.configureSettings": {
 
