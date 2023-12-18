@@ -1,10 +1,10 @@
 # pico wwvb
 
-Pico wwvb is a single board computer which gets the time via NTP and transmits a WWVB signal to synchronize radio controlled clocks.
+Pico wwvb is a single board computer which gets the time via NTP and transmits a WWVB signal to synchronize radio controlled clocks. It uses the [Raspberry Pi Pico W](https://www.raspberrypi.com/documentation/microcontrollers/raspberry-pi-pico.html).
 
-It uses the [Raspberry Pi Pico W](https://www.raspberrypi.com/documentation/microcontrollers/raspberry-pi-pico.html), and doesn't require making a printed circuit board.
-
-This is a simplification of a previous project which used GPS to obtain the time.  See [micro-wwvb](https://github.com/chgenly/micro-wwvb).
+This is a simplification of a previous project which used GPS to obtain the time.  See [micro-wwvb](https://github.com/chgenly/micro-wwvb).  No PC board has to
+be fabricated, many fewer components to solder, and no worries about whether or
+not you can receive GPS inside a house.
 
 ![pico-wwvb board with antenna](images/pico_wwvb_board_with_antenna.jpg)
 PICO W with antenna 
@@ -17,10 +17,31 @@ I have three radio controlled clocks.
 - Oregon Scientific
 - Casio 2688 Watch
 
-I can set all three clocks with the pico-wwvb board.  The marathon always synchs. So this is the one I tested with the most and it assured me that the wwvb signal was correct. The Oregon Scientific syncs some of the time.  The watch synchronizes infrequently and has to be right next to the antenna.
+I can set all three clocks with the pico-wwvb board.  The marathon always synchs. So this is the one I tested with the most and it assured me that the wwvb signal was correct. The Oregon Scientific syncs some of the time.  The watch synchronizes infrequently and has to be right next to the antenna.  Although the watch does seem
+to sychronize at night when it initates its automatic sync.  So I can call the
+project a success.
 
 ![My radio controlled clocks](images/radio_controlled_clocks.jpg)
 
+## The lights
+
+There are three leds used to report status of the board. These LEDs should be interpreted as a binary number.  The most significant bit is the leftmost one (as seen in the pictures of the board above). This table indicates the displayed values.
+
+| *Display* | *Meaning*                                    |
+| --------- | ---------                                    |
+| Rapidly flashing 7 through 0 | This is the 8 second startup countdown. Counting down from 7 to 0.
+| 1 | The state structure has been allocated               |
+| 2 | The WIFI subsystem has been initialized              |
+| 3 | A UDP receive handler was setup.                     |
+| 4 | WIFI login was successful                            |
+| 5 | A DNS response for the time server has been received |
+| 6 | NTP time received                                    |
+
+The pico's built-in led is used to show when the WWVB signal is sending at high power.  So it changes once a second.
+
+If the LEDs are slowly flashing, then an error has occured.  Lookup the number in the table above to understand which step failed.
+
+The startup delay is to give the user time to start a terminal, such as putty, to look at serial output over the USB port.
 
 ## Windows Development environement
 
@@ -49,26 +70,6 @@ Install the cmake extensions.
 Open the cmake view.  In the project outline find pico-wwvb and click the build icon on the right side of that line.
 
 There is also a test_dow you can run which tests the day of week code.
-
-## The lights
-
-There are three leds used to report status of the board. These LEDs should be interpreted as a binary number.  The most significant bit is the leftmost one (as seen in the pictures of the board above). This table indicates the displayed values.
-
-| *Display* | *Meaning*                                    |
-| --------- | ---------                                    |
-| Rapidly flashing 0 through 7 | This is the 8 second startup delay. It will count up from 0 to 7.|
-| 1 | The state structure has been allocated               |
-| 2 | The WIFI subsystem has been initialized              |
-| 3 | A UDP receive handler was setup.                     |
-| 4 | WIFI login was successful                            |
-| 5 | A DNS response for the time server has been received |
-| 6 | NTP time received                                    |
-
-The pico's built-in led is used to show when the WWVB signal is sending at high power.  So it changes once a second.
-
-If the LEDs are slowly flashing, then an error has occured.  Lookup the number in the table above.
-
-The startup delay is to give the user time to start a terminal, such as putty, to look at serial output over the USB port.
 
 ## Parts
 
@@ -113,6 +114,34 @@ Solder the 10 &micro;F capacitor in line with one of the antenna leads.  Solder 
 
 You can now plug the pins from the wires connected to the board into the antenna connector.
 
+## Software
+
+The build is performed by CMake.  The src folder contains
+the main software, the test folder contains some small tests.
+
+**pico_wwvb.c** is the main source file.  This initializes the board and runs the top level loop of get time via NTP, and then start a ten minute broadcast.
+
+Just before starting the broadcast, execution is delayed
+until a one second boundary is reached.
+
+**pico_ntp_client.c**  This is a simple implementation of 
+the ntp protocol.  It logs into wifi, makes a DNS request
+to get an ntp pool machine IP address, and then finally 
+makes the ntp request itself.  The time between 
+transmission and reception of the NTP packet is divided by 
+two to get an estimate of the transmission delay. This 
+delay is then added to the time returned in the NTP packet
+to make it a bit more accurate.
+
+The network operations are in a loop which will retry 
+the operations if an NTP response is not received in
+30 seconds.
+
+**wwvb_led.c** initializes LED hardware and controls
+reporting status and errors.
+
+**wwvb_pwm.c** Interface to send the high power and low
+power phases of an NTP bit.
 
 ## Debug
 
