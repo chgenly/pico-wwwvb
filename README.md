@@ -103,10 +103,10 @@ significant bit is on GPIO 12.
 
 ### Antenna wires
 
-Take two of the male to female pin cables.  Cut the wire about two inches away from the male connector. (Throw away the female side.)  Solder one of these into hole for GPIO 1, and the other to the adjacent hole for ground.
+Take two of the male to female pin cables.  Cut the wire about two inches away from the male connector. (Throw away the female side.)  Solder one of these into the hole for GPIO 2, and the other to the adjacent hole for ground.
 
 ![pico-wwvb board](images/pico_wwvb_board.jpg)
-PICO W board showing LEDs and antenna connection
+PICO W board showing LEDs and antenna connection. Picture taken before antenna was moved to GPIO 2.
 
 ### Antenna
 
