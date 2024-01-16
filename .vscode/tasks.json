@@ -1,0 +1,18 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Copy pico_wwvb.uf2",
+            
+            "windows": {
+                "command": "copy build\\src\\pico_wwvb.uf2 d:"
+            },
+            "type": "shell",
+            "args": [],
+            "presentation": {
+                "reveal": "always"
+            },
+            "group": "build"
+        }
+    ]
+}
