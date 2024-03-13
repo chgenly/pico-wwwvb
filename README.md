@@ -1,13 +1,16 @@
-# pico wwvb
+# Pico WWVB
 
-Pico wwvb is a single board computer which gets the time via NTP and transmits a WWVB signal to synchronize radio controlled clocks. It uses the [Raspberry Pi Pico W](https://www.raspberrypi.com/documentation/microcontrollers/raspberry-pi-pico.html).
+Pico WWVB is a single board computer which gets the time via [NTP](https://en.wikipedia.org/wiki/Network_Time_Protocol) and transmits a WWVB signal to synchronize radio controlled clocks. It uses the [Raspberry Pi Pico W](https://www.raspberrypi.com/documentation/microcontrollers/raspberry-pi-pico.html).
 
 This is a simplification of a previous project which used GPS to obtain the time.  See [micro-wwvb](https://github.com/chgenly/micro-wwvb).  No PC board has to
 be fabricated, many fewer components to solder, and no worries about whether or
 not you can receive GPS inside a house.
 
 ![pico-wwvb board with antenna](images/pico_wwvb_board_with_antenna.jpg)
-PICO W with antenna 
+Pico WWVB with antenna 
+
+![pico-wwvb in a case](images/pico_wwvb_in_case.jpg)
+I used a food container as the case.
 
 ## The Radio Controlled Clocks
 
@@ -17,9 +20,10 @@ I have three radio controlled clocks.
 - Oregon Scientific
 - Casio 2688 Watch
 
-I can set all three clocks with the pico-wwvb board.  The marathon always synchs. So this is the one I tested with the most and it assured me that the wwvb signal was correct. The Oregon Scientific syncs some of the time.  The watch synchronizes infrequently and has to be right next to the antenna.  Although the watch does seem
-to sychronize at night when it initates its automatic sync.  So I can call the
-project a success.
+I can set all three clocks with the Pico WWVB board. The Marathon is the most
+sensitive and can be the furthest away, about 8 inches.  I've found that the
+watch and the Oregon Scientific work well, but only if they are away from
+my monitor. 
 
 ![My radio controlled clocks](images/radio_controlled_clocks.jpg)
 
@@ -47,7 +51,7 @@ The startup delay is to give the user time to start a terminal, such as putty, t
 
 ### Environment variables
 
-You have to set two environment variables. WIFI_SSID and WIFI_PASSWORD. These are the ssid and password used by the pico's cygw43 chip to login to your wifi network.  The cmake file will refuse to build pico-wwvb until you set these.
+You have to set two environment variables. WIFI_SSID and WIFI_PASSWORD. These are the ssid and password used by the pico's cygw43 chip to login to your wifi network.  The cmake file will refuse to build Pico WWVB until you set these.
 
 ### Raspberry pi pico SDK
 
@@ -61,7 +65,7 @@ In your Start Menu, look for the *Pico - Visual Studio Code* shortcut,
 in the *Raspberry Pi Pico SDK \<version\>* folder. The shortcut sets up
 the needed environment variables and then launches Visual Studio Code.
 
-Clone the pico-wwvb project from github, then open pico-wwvb folder in vscode.
+Clone the Pico WWVB project from github, then open pico-wwvb folder in vscode.
 
 Install the cmake extensions.
 
