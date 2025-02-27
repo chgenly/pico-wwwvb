@@ -99,8 +99,8 @@ then appear as a USB mass storage device. Dragging a special '.uf2' file onto th
 - press the BOOTSEL button on the pico.
 - Plug your pico into your computer.
 - release the button.
-- A folder should open up showing the contents of the pico flash.
-- Copy build/src/pico_wwvb.uf2
+- A folder should open up showing the contents of the Pico flash.
+- From the visual studio explorer view, drag build/src/pico_wwvb.uf2 to the Pico's folder.
 
 ## Parts
 
@@ -179,7 +179,7 @@ power phases of an NTP bit.
 
 ## Debug
 
-Follow the instructions on the rapsberry pi site for setting up the debug probe.
+Follow the instructions on the Rapsberry Pi site for setting up the debug probe.
 
 
 # printf doesn't work with tiny usb
