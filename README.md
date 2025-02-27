@@ -29,7 +29,13 @@ my monitor.
 
 ## The lights
 
-There are three leds used to report status of the board. These LEDs should be interpreted as a binary number.  The most significant bit is the leftmost one (as seen in the pictures of the board above). This table indicates the displayed values.
+There are three LEDs used to report status of the board. These LEDs should be interpreted as a binary number.
+ The most significant bit is the leftmost one, the one furthest away from the USB connector. (as seen in the 
+ pictures of the board above). 
+ This table indicates the meaning of the displayed values.  You will see a count down, and then
+ as each step completes its value will be shown. If an error occurs on a step the LEDs will
+ flash the value of the failed step.  If a value lingers, it means the next step is taking
+ some time.
 
 | *Display* | *Meaning*                                    |
 | --------- | ---------                                    |
@@ -43,37 +49,58 @@ There are three leds used to report status of the board. These LEDs should be in
 
 The pico's built-in led is used to show when the WWVB signal is sending at high power.  So it changes once a second.
 
-If the LEDs are slowly flashing, then an error has occured.  Lookup the number in the table above to understand which step failed.
+If the LEDs are slowly flashing, then an error has occurred.  Lookup the number in the table above to understand which step failed.
 
 The startup delay is to give the user time to start a terminal, such as putty, to look at serial output over the USB port.
 
-## Windows Development environement
+## Windows Development environment
 
 ### Environment variables
 
 You have to set two environment variables. WIFI_SSID and WIFI_PASSWORD. These are the ssid and password used by the pico's cygw43 chip to login to your wifi network.  The cmake file will refuse to build Pico WWVB until you set these.
 
-### Raspberry pi pico SDK
+You can set them using using windows settings, or you can edit the file env.cmake.  
 
-As described in [Getting Started With Raspberry Pi Pico](https://datasheets.raspberrypi.com/pico/getting-started-with-pico.pdf?_gl=1*1nfvcz8*_ga*MzMwNzAxMjUzLjE3MDExNDE3NTA.*_ga_22FD70LWDS*MTcwMTE5ODg2Mi4zLjEuMTcwMTIwMDY5Ny4wLjAuMA..)
+Setting windows environment variables:
+- Press the windows key, type "environment", 
+- select "Edit the system environment variables".  A dialog pops up.
+- Click on the "Environment Variables" button.
+- Click "New..." and add your environment variables.
+- Restart visual studio code so it sees the new environment variables.
 
-Download the latest
-release of [Pico setup for windows](https://github.com/raspberrypi/pico-setup-windows/releases/latest/download/pico-setup-windows-x64-standalone.exe)
-and run it.
+Settings environment variables using env.cmake:
+- Edit env.cmake.
+- Uncomment the set commands.
+- Change the values.
+- Save
+- No need to restart visual studio code.
 
-In your Start Menu, look for the *Pico - Visual Studio Code* shortcut,
-in the *Raspberry Pi Pico SDK \<version\>* folder. The shortcut sets up
-the needed environment variables and then launches Visual Studio Code.
+### Raspberry Pi Pico SDK
 
-Clone the Pico WWVB project from github, then open pico-wwvb folder in vscode.
-
-Install the cmake extensions.
+Upon starting visual studio code, it will ask if you want to install the recommended extensions.  Answer yes to this and it will install the raspberry pi pico extension which will in turn install the Pico SDK.  This may take a while.
 
 ## To Build from source
 
-Open the cmake view.  In the project outline find pico-wwvb and click the build icon on the right side of that line.
+Open the Raspberry PI PicoProject view.  The icon looks like a pico chip. Click on Clean CMake.  You won't have to do this again.  Now click on Compile Project.
 
 There is also a test_dow you can run which tests the day of week code.
+
+If you don't see the CMAKE icon in the VS code action bar, make sure
+you have the PICO SDK installed.  Then you can try Ctrl-Shift-P CMAKE: reset.
+When VS code asks for a kit, select "unspecified".
+
+## Programming the pico.
+
+The simplest way to reprogram the Pico W’s flash is to use the USB mode. To do this, power-down the board, then hold
+the BOOTSEL button down during board power-up (e.g. hold BOOTSEL down while connecting the USB). The Pico W will
+then appear as a USB mass storage device. Dragging a special '.uf2' file onto the disk will write this file to the flash and restart the Pico W.
+
+- Remove power from the pico.
+- press the BOOTSEL button on the pico.
+- Plug your pico into your computer.
+- release the button.
+- A folder should open up showing the contents of the pico flash.
+- Copy build/src/pico_wwvb.uf2
 
 ## Parts
 
@@ -86,6 +113,9 @@ There is also a test_dow you can run which tests the day of week code.
 | Three 500 ohm resistors || |
 | Capacitor 10uf cer |	$0.49 |	FG18X5R1E106MRT06 [digikey](https://www.digikey.com/en/products/detail/samsung-electro-mechanics/CL31A106KOHNNNE/3886795https://www.digikey.com/en/products/detail/tdk-corporation/FG18X5R1E106MRT06/7384735) |
 | micro usb cable. | | |
+| PI debug probe | $12.00 | [Debug probe](https://www.raspberrypi.com/documentation/microcontrollers/debug-probe.html), [Sparkfun](https://www.sparkfun.com/raspberry-pi-debug-probe.html) |
+
+The debug probe is optional.  I found it very useful while developing the code.
 
 I also bought a $30 [FNIRSI oscilliscope](https://www.amazon.com/dp/B0CD1WKP33/ref=pe_386300_440135490_TE_simp_item_image) so I could check the signal at the antenna.  It was a great help in debugging.
 
@@ -149,24 +179,7 @@ power phases of an NTP bit.
 
 ## Debug
 
-(Can't get this to work. I ordered a pico debug probe)
-
-You can debug a Raspberry Pi Pico board directly connectd to a PC via USB.  
-
-See [How to debug using vscode](https://github.com/majbthrd/pico-debug/blob/master/howto/vscode1.md)
-
-Copy
-C:\Program Files\Raspberry Pi\Pico SDK v1.5.1\openocd\scripts\board\pico-debug.cfg
-to
-.vscode/launch.json
-
-Edit launch.json to point to the right elf file.  (build/src/pico_wwvb.elf)
-
-Download pico-debug-gimmecache.uf2 from the pico-debug github site.  Boot the pico 
-with the BOOTSEL button pressed and drop the uf2 file.  Now you're ready to use 
-the debugger in VS code.
-
-Select the Run/Start Debugging menu item.
+Follow the instructions on the rapsberry pi site for setting up the debug probe.
 
 
 # printf doesn't work with tiny usb
